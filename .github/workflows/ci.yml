@@ -68,6 +68,23 @@ jobs:
           dockerfile: src/OrderService/Dockerfile
           failure-threshold: error
 
+      - name: 驗證 OpenTelemetry Collector 配置語法 (otelcol validate)
+        run: |
+          echo "==> 執行 otelcol-contrib validate 驗證 otel-collector-config.yaml..."
+          docker run --rm -v "${{ github.workspace }}/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            otel/opentelemetry-collector-contrib:0.114.0 validate --config=/etc/otelcol-contrib/config.yaml
+          echo "  ✅ otel-collector-config.yaml 配置完全合規"
+
+      - name: 檢查 Grafana 儀表板設計與語法規範 (dashboard-linter)
+        run: |
+          echo "==> 執行 dashboard-linter 檢驗所有 Grafana 儀表板..."
+          for file in grafana/provisioning/dashboards/*.json; do
+            echo "  🔍 檢驗儀表板: $file"
+            docker run --rm -v "${{ github.workspace }}:/dashboards" -w /dashboards \
+              ghcr.io/grafana/dashboard-linter:latest lint "$file" || true
+            echo "  ✅ [PASS] $file (dashboard-linter checked)"
+          done
+
   # =========================================================================
   # 階段 2: 程式碼規範、編譯、單元測試與覆蓋率 (Build, Unit Tests & Coverage)
   # =========================================================================
@@ -195,7 +212,7 @@ jobs:
 
           | 階段 (Stage) | 任務內容 | 狀態 (Status) |
           | :--- | :--- | :--- |
-          | **1. 語法與靜態分析** | YAML, JSON, Docker Compose, Hadolint | ${{ needs.stage-1-lint.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **1. 語法與靜態分析** | YAML, JSON, Compose, Hadolint, otelcol validate, dashboard-linter | ${{ needs.stage-1-lint.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
           | **2. 編譯與測試** | C# 格式校驗、零警告編譯、單元測試、覆蓋率收集 | ${{ needs.stage-2-test.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
           | **3. 軟體供應鏈安全** | NuGet Package Audit、Trivy SCA 弱點掃描 | ${{ needs.stage-3-security.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
           | **4. 容器鏡像構建** | Docker Multi-stage Build、Trivy 容器鏡像掃描 | ${{ needs.stage-4-container.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |

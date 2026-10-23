@@ -24,9 +24,10 @@ receivers:
       insecure: true
 
   # 3. Apache Kafka 3.9 指標收集器 (Broker、Topics、Partitions 與 Consumer Group Lag)
-  kafka_metrics:
+  kafkametrics:
     brokers:
       - "kafka:29092"
+      - "localhost:9092"
     protocol_version: "3.0.0"
     collection_interval: 10s
     scrapers:
@@ -78,7 +79,7 @@ service:
       level: info
   pipelines:
     metrics:
-      receivers: [otlp, redis, postgresql, kafka_metrics, elasticsearch]
+      receivers: [otlp, redis, postgresql, kafkametrics, elasticsearch]
       processors: [memory_limiter, batch]
       exporters: [prometheusremotewrite, debug]
 
