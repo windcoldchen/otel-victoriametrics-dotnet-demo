@@ -325,6 +325,7 @@ flowchart LR
 │   └── workflows/
 │       └── ci.yml                          # 企業級標準 CI 流水線
 ├── scripts/
+│   ├── generate-traffic.sh                 # 自動化多維度可觀測性測試流量產生腳本
 │   ├── run-ci-local.sh                     # 本地標準 CI 流水線執行腳本
 │   └── validate-syntax.sh                  # 本地與 CI 語法檢查驗證腳本
 ├── docker-compose.yml                      # 一鍵編排 11 大核心容器
