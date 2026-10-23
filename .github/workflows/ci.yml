@@ -126,7 +126,7 @@ jobs:
             --logger "trx;LogFileName=test-results.trx"
 
       - name: 封存測試報告與覆蓋率產物 (Upload Test & Coverage Artifacts)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-and-coverage
