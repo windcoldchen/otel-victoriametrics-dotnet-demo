@@ -250,8 +250,10 @@ flowchart LR
 
 ### 五大核心階段：
 1. **靜態語法與規範 (Syntax & Lint)**：
-   - 遞迴校驗所有 YAML 與 JSON 配置（包含 5 個 Grafana 看板與 Vector 設定）。
-   - Dockerfile (Hadolint) 與 Docker Compose 規範檢查。
+   - 遞迴校驗所有 YAML 與 JSON 配置（包含 Vector 設定與組態）。
+   - Dockerfile (Hadolint) 與 Docker Compose 規範結構檢查。
+   - **`otelcol validate`**：使用 OpenTelemetry Collector 驗證 `otel-collector-config.yaml` 接收器、處理器與導出器管道語法。
+   - **`dashboard-linter`**：透過 Grafana 官方 `ghcr.io/grafana/dashboard-linter` 檢驗所有 5 套儀表板設計與語法規範。
 2. **編譯、單元測試與代碼覆蓋率 (Build & Tests)**：
    - 自動快取 NuGet 相依套件。
    - `dotnet format --verify-no-changes` 強制保持代碼風格一致。
@@ -260,9 +262,10 @@ flowchart LR
 3. **軟體供應鏈安全 (Security & SCA)**：
    - `dotnet list package --vulnerable` 檢查套件已知 CVE 弱點。
    - 執行 Aqua Trivy 檔案系統與依賴套件安全掃描。
-4. **容器映像檔建構與鏡像安全 (Docker Build & Scan)**：
+4. **容器映像檔建構、安全與發布 (Docker Build, Scan & GHCR Push)**：
    - 透過 Docker Buildx 與 GitHub Cache 加速多階段映像檔建構。
-   - 執行 Trivy 容器映像檔 CVE 漏洞掃描。
+   - 執行 Trivy 容器映像檔 CVE 漏洞掃描 (嚴格把關安全)。
+   - **自動發布**：當合併至 `main` 分支且 .NET Core 程式有變更時，自動推送映像檔至 GitHub Container Registry (`ghcr.io/${{ github.repository }}`)。
 5. **品質門禁決策總結 (Quality Gate Summary)**：
    - 於 `$GITHUB_STEP_SUMMARY` 自動生成 Markdown 執行矩陣與合併決策。
 

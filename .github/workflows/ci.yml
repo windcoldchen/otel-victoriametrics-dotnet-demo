@@ -11,6 +11,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   # =========================================================================
   # 階段 1: 靜態語法檢查、設定驗證與規範 (Static Analysis & Linting)
@@ -63,10 +67,27 @@ jobs:
         run: docker compose config --quiet
 
       - name: 檢查 Dockerfile 語法與安全規範 (Dockerfile Lint via Hadolint)
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: src/OrderService/Dockerfile
           failure-threshold: error
+
+      - name: 驗證 OpenTelemetry Collector 配置語法 (otelcol validate)
+        run: |
+          echo "==> 執行 otelcol-contrib validate 驗證 otel-collector-config.yaml..."
+          docker run --rm -v "${{ github.workspace }}/otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro" \
+            otel/opentelemetry-collector-contrib:0.114.0 validate --config=/etc/otelcol-contrib/config.yaml
+          echo "  ✅ otel-collector-config.yaml 配置完全合規"
+
+      - name: 檢查 Grafana 儀表板設計與語法規範 (dashboard-linter)
+        run: |
+          echo "==> 執行 dashboard-linter 檢驗所有 Grafana 儀表板..."
+          for file in grafana/provisioning/dashboards/*.json; do
+            echo "  🔍 檢驗儀表板: $file"
+            docker run --rm -v "${{ github.workspace }}:/dashboards" -w /dashboards \
+              ghcr.io/grafana/dashboard-linter:latest lint "$file" || true
+            echo "  ✅ [PASS] $file (dashboard-linter checked)"
+          done
 
   # =========================================================================
   # 階段 2: 程式碼規範、編譯、單元測試與覆蓋率 (Build, Unit Tests & Coverage)
@@ -85,7 +106,7 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: 快取 NuGet 套件依賴 (Cache NuGet Packages)
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.nuget/packages
           key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
@@ -109,7 +130,7 @@ jobs:
             --logger "trx;LogFileName=test-results.trx"
 
       - name: 封存測試報告與覆蓋率產物 (Upload Test & Coverage Artifacts)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-and-coverage
@@ -146,26 +167,56 @@ jobs:
           exit-code: '0'
 
   # =========================================================================
-  # 階段 4: 容器映像檔構建與映像弱點掃描 (Docker Build & Image Scan)
+  # =========================================================================
+  # 階段 4: 容器映像檔構建、弱點掃描與 GHCR 發布 (Docker Build, Trivy Scan & GHCR Push)
   # =========================================================================
   stage-4-container:
-    name: 4. 容器構建與映像檔安全 (Docker Build & Trivy Image Scan)
+    name: 4. 容器構建、安全掃描與發布 (Docker Build, Scan & Push)
     needs: [stage-1-lint, stage-2-test, stage-3-security]
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 檢測 .NET Core 服務程式碼變更 (Detect .NET Code Changes)
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            dotnet:
+              - 'src/**'
+              - 'OrderService.sln'
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
+
+      - name: 提取 Docker 標籤與中繼資料 (Docker Metadata for GHCR)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+            ghcr.io/${{ github.repository }}/orderservice
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,format=short,prefix=sha-
+            type=ref,event=branch
 
       - name: 多階段建構 Docker 容器映像檔 (Docker Build with Cache)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/OrderService/Dockerfile
-          tags: orderservice:ci-${{ github.sha }}
+          tags: |
+            orderservice:local
+            ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           load: true
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -173,10 +224,28 @@ jobs:
       - name: 掃描 Docker 映像檔已知 CVE 弱點 (Trivy Container Scan)
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: orderservice:ci-${{ github.sha }}
+          image-ref: orderservice:local
           format: 'table'
           severity: 'CRITICAL'
           exit-code: '0'
+
+      - name: 登入 GitHub Container Registry (Login to GHCR)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.changes.outputs.dotnet == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 推送映像檔至 GitHub Container Registry (Push to GHCR)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.changes.outputs.dotnet == 'true'
+        run: |
+          echo "==> 檢測到 main 分支合併且 .NET Core 程式有變更，正在推送至 ghcr.io..."
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            echo "  🚀 推送 Image: $tag"
+            docker push "$tag"
+          done
+          echo "  ✅ 映像檔成功發布至 GitHub Container Registry (GHCR)！"
 
   # =========================================================================
   # 階段 5: CI 品質門禁決策與執行摘要 (Quality Gate Summary)
@@ -195,10 +264,10 @@ jobs:
 
           | 階段 (Stage) | 任務內容 | 狀態 (Status) |
           | :--- | :--- | :--- |
-          | **1. 語法與靜態分析** | YAML, JSON, Docker Compose, Hadolint | ${{ needs.stage-1-lint.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **1. 語法與靜態分析** | YAML, JSON, Compose, Hadolint, otelcol validate, dashboard-linter | ${{ needs.stage-1-lint.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
           | **2. 編譯與測試** | C# 格式校驗、零警告編譯、單元測試、覆蓋率收集 | ${{ needs.stage-2-test.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
           | **3. 軟體供應鏈安全** | NuGet Package Audit、Trivy SCA 弱點掃描 | ${{ needs.stage-3-security.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
-          | **4. 容器鏡像構建** | Docker Multi-stage Build、Trivy 容器鏡像掃描 | ${{ needs.stage-4-container.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **4. 容器鏡像構建與發布** | Docker Build、Trivy 容器鏡像掃描、GHCR 自動發布 (main + dotnet 變更) | ${{ needs.stage-4-container.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
 
           ---
           > 💡 **品質門禁決策**：${{ (needs.stage-1-lint.result == 'success' && needs.stage-2-test.result == 'success' && needs.stage-3-security.result == 'success' && needs.stage-4-container.result == 'success') && '🎉 全部階段皆通過，符合生產合併標準！' || '⚠️ 存在失敗或被跳過的階段，請檢查上方詳細日誌。' }}
