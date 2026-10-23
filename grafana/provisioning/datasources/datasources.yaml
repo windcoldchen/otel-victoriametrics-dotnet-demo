@@ -1,9 +1,10 @@
 apiVersion: 1
 
 datasources:
-  # 1. VictoriaMetrics 時序指標數據源
+  # 1. VictoriaMetrics 時序指標數據源 (支援 Exemplars ➔ VictoriaTraces)
   - name: VictoriaMetrics
     type: prometheus
+    uid: victoriametrics
     access: proxy
     url: http://victoria-metrics:8428
     isDefault: true
@@ -13,16 +14,31 @@ datasources:
       exemplarTraceIdDestinations:
         - name: trace_id
           datasourceUid: victoriatraces
+          urlDisplayLabel: 'View in VictoriaTraces'
 
-  # 2. VictoriaLogs 結構化日誌數據源
+  # 2. VictoriaLogs 結構化日誌數據源 (支援 Derived Fields ➔ VictoriaTraces)
   - name: VictoriaLogs
     type: victorialogs-datasource
     uid: victorialogs
     access: proxy
     url: http://victoria-logs:9428
     editable: true
+    jsonData:
+      derivedFields:
+        # A. 日誌 ➔ 鏈路：點擊 trace_id 直接跳轉展開 VictoriaTraces 瀑布圖
+        - name: trace_id
+          matcherRegex: '(?:"trace_id"|"traceId"|TraceId)[:= ]"?([a-fA-F0-9]{32})"'
+          url: '${__value.raw}'
+          datasourceUid: victoriatraces
+          urlDisplayLabel: 'View in VictoriaTraces'
+        # B. 日誌 ➔ 日誌：點擊 order_id 迅速過濾該筆訂單在各中介軟體的全生命週期日誌
+        - name: order_id
+          matcherRegex: '(ORD-[0-9A-Z]{8})'
+          url: '${__value.raw}'
+          datasourceUid: victorialogs
+          urlDisplayLabel: 'Filter by Order ID'
 
-  # 3. VictoriaTraces 分散式鏈路追蹤數據源 (以 Jaeger 相容格式掛載)
+  # 3. VictoriaTraces 分散式鏈路追蹤數據源 (支援 Trace ➔ Logs 與 Trace ➔ Metrics)
   - name: VictoriaTraces
     type: jaeger
     uid: victoriatraces
@@ -30,9 +46,28 @@ datasources:
     url: http://victoria-traces:10428
     editable: true
     jsonData:
+      # A. 鏈路 ➔ 日誌 (Trace ➔ Logs)：點擊任何 Span 自動依 Trace ID 檢索該次呼叫的所有日誌
       tracesToLogs:
         datasourceUid: victorialogs
         tags: ['trace_id']
         filterByTrace: true
         filterBySpan: false
-        query: '_time:15m AND trace_id:"${__trace.id}"'
+        query: '_time:1h AND (trace_id:"${__trace.id}" OR "${__trace.id}")'
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+      # B. 鏈路 ➔ 指標 (Trace ➔ Metrics)：點擊 Span 查看該服務在該時段的請求率與業務指標
+      tracesToMetrics:
+        datasourceUid: victoriametrics
+        tags:
+          - key: 'service.name'
+            value: 'service_name'
+        queries:
+          - name: 'HTTP Requests Rate'
+            query: 'sum(rate(http_server_request_duration_seconds_count{$$__tags}[1m]))'
+          - name: 'Order Processing Rate'
+            query: 'sum(rate(orders_created_total[1m]))'
+          - name: 'Error Rate (5xx)'
+            query: 'sum(rate(http_server_request_duration_seconds_count{$$__tags, http_response_status_code=~"5.."}[1m]))'
+      # C. 服務拓撲圖 (Service Map)
+      serviceMap:
+        datasourceUid: victoriametrics

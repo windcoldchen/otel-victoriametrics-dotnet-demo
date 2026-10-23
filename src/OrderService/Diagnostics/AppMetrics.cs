@@ -29,4 +29,29 @@ public static class AppMetrics
         name: "orders.active_processing",
         unit: "{orders}",
         description: "Number of orders currently being processed");
+
+    public static readonly Counter<long> ValkeyCacheHitsCounter = Meter.CreateCounter<long>(
+        name: "orders.valkey.cache_hits",
+        unit: "{hits}",
+        description: "Total number of Valkey cache hits");
+
+    public static readonly Counter<long> ValkeyCacheMissesCounter = Meter.CreateCounter<long>(
+        name: "orders.valkey.cache_misses",
+        unit: "{misses}",
+        description: "Total number of Valkey cache misses");
+
+    public static readonly Counter<long> KafkaMessagesPublishedCounter = Meter.CreateCounter<long>(
+        name: "orders.kafka.messages_published",
+        unit: "{messages}",
+        description: "Total number of order events published to Kafka");
+
+    public static readonly Counter<long> OpenSearchDocumentsIndexedCounter = Meter.CreateCounter<long>(
+        name: "orders.opensearch.documents_indexed",
+        unit: "{documents}",
+        description: "Total number of order documents indexed in OpenSearch");
+
+    public static readonly Counter<long> PostgresOrdersInsertedCounter = Meter.CreateCounter<long>(
+        name: "orders.postgres.rows_inserted",
+        unit: "{rows}",
+        description: "Total number of order rows inserted into PostgreSQL");
 }
