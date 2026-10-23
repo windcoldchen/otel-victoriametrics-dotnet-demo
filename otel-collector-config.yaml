@@ -1,0 +1,60 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 75
+    spike_limit_percentage: 20
+
+  batch:
+    timeout: 2s
+    send_batch_size: 1024
+
+exporters:
+  # 1. Metrics -> VictoriaMetrics
+  prometheusremotewrite:
+    endpoint: "http://victoria-metrics:8428/api/v1/write"
+    resource_to_telemetry_conversion:
+      enabled: true
+
+  # 2. Logs -> VictoriaLogs
+  otlphttp/victorialogs:
+    endpoint: "http://victoria-logs:9428/insert/opentelemetry"
+    tls:
+      insecure: true
+
+  # 3. Traces -> VictoriaTraces
+  otlp/victoriatraces:
+    endpoint: "victoria-traces:10428"
+    tls:
+      insecure: true
+
+  # Debug logging exporter (optional, prints to container stdout)
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: info
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [prometheusremotewrite, debug]
+
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/victorialogs, debug]
+
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, batch]
+      exporters: [otlp/victoriatraces, debug]

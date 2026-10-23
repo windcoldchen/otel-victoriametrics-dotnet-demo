@@ -1,0 +1,30 @@
+name: CI - Build & Test
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build .NET Core 8 Solution
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET Core SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore OrderService.sln
+
+    - name: Build Solution
+      run: dotnet build OrderService.sln --no-restore -c Release
+
+    - name: Validate Docker Compose Config
+      run: docker compose config

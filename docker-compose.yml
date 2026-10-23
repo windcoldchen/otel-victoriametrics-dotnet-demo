@@ -1,0 +1,113 @@
+version: "3.8"
+
+networks:
+  obs-demo-net:
+    driver: bridge
+
+volumes:
+  vm_data:
+  vlogs_data:
+  vtraces_data:
+  grafana_data:
+
+services:
+  # 1. .NET 8 Web API 業務微服務
+  order-service:
+    build:
+      context: .
+      dockerfile: src/OrderService/Dockerfile
+    container_name: order-service
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - OTEL_SERVICE_NAME=OrderService
+    depends_on:
+      - otel-collector
+    networks:
+      - obs-demo-net
+
+  # 2. OpenTelemetry 收集與分流中樞
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.108.0
+    container_name: otel-collector
+    command: ["--config=/etc/otelcol-contrib/config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    ports:
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+      - "8888:8888" # Collector 自身指標
+    depends_on:
+      - victoria-metrics
+      - victoria-logs
+      - victoria-traces
+    networks:
+      - obs-demo-net
+
+  # 3. VictoriaMetrics (時序指標 TSDB)
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.106.0
+    container_name: victoria-metrics
+    ports:
+      - "8428:8428"
+    volumes:
+      - vm_data:/victoria-metrics-data
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-httpListenAddr=:8428"
+      - "-retentionPeriod=7d"
+    networks:
+      - obs-demo-net
+
+  # 4. VictoriaLogs (結構化日誌 TSDB)
+  victoria-logs:
+    image: victoriametrics/victoria-logs:v1.8.0
+    container_name: victoria-logs
+    ports:
+      - "9428:9428"
+    volumes:
+      - vlogs_data:/victoria-logs-data
+    command:
+      - "-storageDataPath=/victoria-logs-data"
+      - "-httpListenAddr=:9428"
+      - "-retentionPeriod=7d"
+    networks:
+      - obs-demo-net
+
+  # 5. VictoriaTraces (分散式鏈路追蹤 TSDB)
+  victoria-traces:
+    image: victoriametrics/victoria-traces:v0.1.0
+    container_name: victoria-traces
+    ports:
+      - "10428:10428"
+    volumes:
+      - vtraces_data:/victoria-traces-data
+    command:
+      - "-storageDataPath=/victoria-traces-data"
+      - "-httpListenAddr=:10428"
+      - "-retentionPeriod=3d"
+    networks:
+      - obs-demo-net
+
+  # 6. Grafana (統一視覺化平台)
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=victoriametrics-datasource,victorialogs-datasource
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - victoria-metrics
+      - victoria-logs
+      - victoria-traces
+    networks:
+      - obs-demo-net

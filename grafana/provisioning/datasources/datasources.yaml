@@ -1,0 +1,38 @@
+apiVersion: 1
+
+datasources:
+  # 1. VictoriaMetrics 時序指標數據源
+  - name: VictoriaMetrics
+    type: prometheus
+    access: proxy
+    url: http://victoria-metrics:8428
+    isDefault: true
+    editable: true
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: victoriatraces
+
+  # 2. VictoriaLogs 結構化日誌數據源
+  - name: VictoriaLogs
+    type: victorialogs-datasource
+    uid: victorialogs
+    access: proxy
+    url: http://victoria-logs:9428
+    editable: true
+
+  # 3. VictoriaTraces 分散式鏈路追蹤數據源 (以 Jaeger 相容格式掛載)
+  - name: VictoriaTraces
+    type: jaeger
+    uid: victoriatraces
+    access: proxy
+    url: http://victoria-traces:10428
+    editable: true
+    jsonData:
+      tracesToLogs:
+        datasourceUid: victorialogs
+        tags: ['trace_id']
+        filterByTrace: true
+        filterBySpan: false
+        query: '_time:15m AND trace_id:"${__trace.id}"'

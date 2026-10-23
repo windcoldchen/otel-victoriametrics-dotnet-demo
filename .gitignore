@@ -1,0 +1,24 @@
+## .NET Core
+bin/
+obj/
+out/
+[Dd]ebug/
+[Rr]elease/
+
+## Visual Studio & JetBrains
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Docker & Local Data
+.docker/
+victoria-metrics-data/
+victoria-logs-data/
+victoria-traces-data/
+
+## OS
+.DS_Store
+Thumbs.db
