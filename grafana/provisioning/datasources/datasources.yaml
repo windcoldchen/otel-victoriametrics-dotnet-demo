@@ -18,7 +18,7 @@ datasources:
 
   # 2. VictoriaLogs 結構化日誌數據源 (支援 Derived Fields ➔ VictoriaTraces)
   - name: VictoriaLogs
-    type: victorialogs-datasource
+    type: victoriametrics-logs-datasource
     uid: victorialogs
     access: proxy
     url: http://victoria-logs:9428
