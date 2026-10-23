@@ -27,7 +27,7 @@
     <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
 
     <!-- Messaging: Apache Kafka 3.9 -->
-    <PackageReference Include="Confluent.Kafka" Version="2.8.0" />
+    <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
 
     <!-- Search Engine: OpenSearch 3 -->
     <PackageReference Include="OpenSearch.Client" Version="1.8.0" />
