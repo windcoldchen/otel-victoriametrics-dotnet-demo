@@ -250,8 +250,10 @@ flowchart LR
 
 ### 五大核心階段：
 1. **靜態語法與規範 (Syntax & Lint)**：
-   - 遞迴校驗所有 YAML 與 JSON 配置（包含 5 個 Grafana 看板與 Vector 設定）。
-   - Dockerfile (Hadolint) 與 Docker Compose 規範檢查。
+   - 遞迴校驗所有 YAML 與 JSON 配置（包含 Vector 設定與組態）。
+   - Dockerfile (Hadolint) 與 Docker Compose 規範結構檢查。
+   - **`otelcol validate`**：使用 OpenTelemetry Collector 驗證 `otel-collector-config.yaml` 接收器、處理器與導出器管道語法。
+   - **`dashboard-linter`**：透過 Grafana 官方 `ghcr.io/grafana/dashboard-linter` 檢驗所有 5 套儀表板設計與語法規範。
 2. **編譯、單元測試與代碼覆蓋率 (Build & Tests)**：
    - 自動快取 NuGet 相依套件。
    - `dotnet format --verify-no-changes` 強制保持代碼風格一致。
