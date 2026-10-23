@@ -237,6 +237,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND (container_name:kafka OR service.name:kafka)",
           "query": "_time:1h AND (container_name:kafka OR service.name:kafka)",
           "refId": "A"
         }
