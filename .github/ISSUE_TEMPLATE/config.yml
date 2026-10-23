@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 可觀測性示範說明文件 (Documentation)
+    url: https://github.com/windcoldchen/otel-victoriametrics-dotnet-demo#readme
+    about: 查閱 360° 可觀測性聯動架構與各中介軟體指南

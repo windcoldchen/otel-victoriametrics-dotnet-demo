@@ -1,0 +1,8 @@
+# 標準程式碼擁有者規範 (Code Owners)
+# 任何對核心或 CI 的變更均自動指派審閱
+
+*                   @windcoldchen
+/.github/workflows/ @windcoldchen
+/src/               @windcoldchen
+/tests/             @windcoldchen
+/grafana/           @windcoldchen
