@@ -40,10 +40,10 @@ builder.Logging.AddOpenTelemetry(loggingOptions =>
 
 // 4. 配置 OpenTelemetry Metrics & Traces
 builder.Services.AddOpenTelemetry()
-    .WithResource(resourceBuilder)
     .WithMetrics(metrics =>
     {
         metrics
+            .SetResourceBuilder(resourceBuilder)
             .AddMeter(AppMetrics.ServiceName) // 註冊自定義業務指標
             .AddAspNetCoreInstrumentation()   // ASP.NET Core HTTP 請求指標
             .AddHttpClientInstrumentation()   // 出站 HTTP 呼叫指標
@@ -56,6 +56,7 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing =>
     {
         tracing
+            .SetResourceBuilder(resourceBuilder)
             .AddSource(AppMetrics.ServiceName) // 註冊自定義鏈路 Activity
             .AddAspNetCoreInstrumentation(options =>
             {
