@@ -63,7 +63,7 @@ jobs:
         run: docker compose config --quiet
 
       - name: 檢查 Dockerfile 語法與安全規範 (Dockerfile Lint via Hadolint)
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.5.0
         with:
           dockerfile: src/OrderService/Dockerfile
           failure-threshold: error
