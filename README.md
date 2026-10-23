@@ -107,7 +107,14 @@ docker compose ps
 
 ### 步驟 2：觸發 API 產生多維觀測性數據
 
-你可以存取 Swagger UI 進行互動式呼叫：`http://localhost:8080/swagger`，或直接使用 `curl`：
+你可以存取 Swagger UI 進行互動式呼叫：`http://localhost:8080/swagger`，或直接使用一鍵測試流量腳本：
+
+```bash
+# 一鍵自動發送多維度測試流量 (涵蓋正常交易、快取、檢索、慢查詢與 500 錯誤)
+./scripts/generate-traffic.sh
+```
+
+亦可使用 `curl` 單獨手動觸發各項情境：
 
 #### A. 建立訂單 (觸發 PG 寫入、Valkey 快取、OpenSearch 索引與 Kafka 事件發布)
 
