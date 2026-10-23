@@ -10,13 +10,13 @@
 
   <ItemGroup>
     <!-- OpenTelemetry Core & Hosting -->
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.20.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.1" />
 
     <!-- OpenTelemetry Instrumentations -->
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.20.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.1" />
     <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.11.0-beta.1" />
 
     <!-- Database: PostgreSQL -->
@@ -30,7 +30,7 @@
     <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
 
     <!-- Search Engine: OpenSearch 3 -->
-    <PackageReference Include="OpenSearch.Client" Version="1.8.0" />
+    <PackageReference Include="OpenSearch.Client" Version="2.2.0" />
 
     <!-- Swagger UI for easy interactive testing -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
