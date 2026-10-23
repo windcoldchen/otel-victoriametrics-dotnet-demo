@@ -242,7 +242,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "victorialogs-datasource", "uid": "victorialogs" },
+      "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
       "gridPos": { "h": 10, "w": 24, "x": 0, "y": 17 },
       "id": 8,
       "options": {
@@ -256,7 +256,7 @@
       "type": "logs",
       "targets": [
         {
-          "datasource": { "type": "victorialogs-datasource", "uid": "victorialogs" },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "query": "_time:1h AND (container_name:postgres OR service.name:postgres)",
           "refId": "A"
         }

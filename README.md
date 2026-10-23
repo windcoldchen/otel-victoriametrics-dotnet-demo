@@ -199,7 +199,7 @@ flowchart LR
   3. 畫面即刻自動切換/分頁至 **VictoriaLogs**，精確列出該次交易在微服務中印出的所有日誌！
 
 #### ③ 日誌 ➔ 鏈路 (Logs ➔ Traces via Derived Fields)
-- **實踐原理**：`victorialogs-datasource` 設定了 `derivedFields`，自動偵測日誌內含的 32 位元 `trace_id`，並渲染為直接跳轉鏈接。
+- **實踐原理**：`victoriametrics-logs-datasource` 設定了 `derivedFields`，自動偵測日誌內含的 32 位元 `trace_id`，並渲染為直接跳轉鏈接。
 - **操作步驟**：
   1. 在 Grafana 的 VictoriaLogs 查詢面板中，展開任一條日誌。
   2. 在欄位列表可以看到 `trace_id` 旁多出了一個 **`View in VictoriaTraces`** 按鈕。
