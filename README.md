@@ -230,7 +230,55 @@ flowchart LR
 
 ---
 
-## 5. 專案目錄結構
+## 5. 軟體開發標準 CI 流水線 (Enterprise Standard CI)
+
+本專案建立了標準化、自動化的五階段 CI 流程，並於 [.github/workflows/ci.yml](.github/workflows/ci.yml) 中配置：
+
+```mermaid
+flowchart LR
+    S1["1. 語法與規範<br/>(YAML/JSON/Docker)"]
+    S2["2. 編譯與測試<br/>(C# Format & xUnit)"]
+    S3["3. 供應鏈安全<br/>(NuGet Audit & Trivy)"]
+    S4["4. 容器建構安全<br/>(Buildx & CVE Scan)"]
+    S5["5. 品質門禁摘要<br/>(Quality Gate)"]
+
+    S1 --> S4
+    S2 --> S4
+    S3 --> S4
+    S4 --> S5
+```
+
+### 五大核心階段：
+1. **靜態語法與規範 (Syntax & Lint)**：
+   - 遞迴校驗所有 YAML 與 JSON 配置（包含 5 個 Grafana 看板與 Vector 設定）。
+   - Dockerfile (Hadolint) 與 Docker Compose 規範檢查。
+2. **編譯、單元測試與代碼覆蓋率 (Build & Tests)**：
+   - 自動快取 NuGet 相依套件。
+   - `dotnet format --verify-no-changes` 強制保持代碼風格一致。
+   - `dotnet build --warnaserror` 嚴格確保零編譯警告。
+   - 執行 xUnit 單元測試並收集 Cobertura 覆蓋率報告，自動上傳至 GitHub Artifacts。
+3. **軟體供應鏈安全 (Security & SCA)**：
+   - `dotnet list package --vulnerable` 檢查套件已知 CVE 弱點。
+   - 執行 Aqua Trivy 檔案系統與依賴套件安全掃描。
+4. **容器映像檔建構與鏡像安全 (Docker Build & Scan)**：
+   - 透過 Docker Buildx 與 GitHub Cache 加速多階段映像檔建構。
+   - 執行 Trivy 容器映像檔 CVE 漏洞掃描。
+5. **品質門禁決策總結 (Quality Gate Summary)**：
+   - 於 `$GITHUB_STEP_SUMMARY` 自動生成 Markdown 執行矩陣與合併決策。
+
+#### 💻 本地一鍵模擬 CI 流水線
+開發者在提交程式碼前，可在本機終端機直接執行與 CI 完全一致的檢驗：
+```bash
+# 完整 CI 流程驗證 (語法檢查 + C# 格式化 + 單元測試 + Docker 鏡像建構)
+./scripts/run-ci-local.sh
+
+# 僅快速檢查所有 YAML / JSON / Compose 語法
+./scripts/validate-syntax.sh
+```
+
+---
+
+## 6. 專案目錄結構
 
 ```text
 ├── src/
@@ -247,6 +295,11 @@ flowchart LR
 │       ├── Dockerfile                      # 多階段容器構建 (.NET 10)
 │       ├── OrderService.csproj             # OpenTelemetry 與中介軟體客戶端套件引用
 │       └── Program.cs                      # DI 註冊、中介軟體連線與 OTel 管道
+├── tests/
+│   └── OrderService.Tests/
+│       ├── OrderTests.cs                   # 業務模型單元測試
+│       ├── AppMetricsTests.cs              # 可觀測性指標與診斷單元測試
+│       └── OrderService.Tests.csproj       # xUnit 與 Coverlet 覆蓋率測試專案
 ├── grafana/
 │   └── provisioning/
 │       ├── datasources/
@@ -260,8 +313,9 @@ flowchart LR
 │           └── postgresql-dashboard.json   # PostgreSQL 17 專屬監控看板
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                          # CI 自動化工作流 (語法檢查、程式碼規範、建構測試)
+│       └── ci.yml                          # 企業級標準 CI 流水線
 ├── scripts/
+│   ├── run-ci-local.sh                     # 本地標準 CI 流水線執行腳本
 │   └── validate-syntax.sh                  # 本地與 CI 語法檢查驗證腳本
 ├── docker-compose.yml                      # 一鍵編排 11 大核心容器
 ├── otel-collector-config.yaml              # OTel Collector 分流輸出與 4 大中介軟體 Scraper

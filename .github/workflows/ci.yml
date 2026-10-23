@@ -1,22 +1,29 @@
-name: CI - Build, Test & Lint
+name: CI - Enterprise Standard Pipeline
 
 on:
   push:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  # 1. 靜態語法檢查作業 (Syntax & Schema Validation)
-  syntax-validation:
-    name: 語法檢查 (YAML, JSON, Docker, Compose)
+  # =========================================================================
+  # 階段 1: 靜態語法檢查、設定驗證與規範 (Static Analysis & Linting)
+  # =========================================================================
+  stage-1-lint:
+    name: 1. 靜態語法與規範 (Syntax, Lint & Config)
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: 檢查 YAML 語法 (YAML Syntax Validation)
+      - name: 檢查 YAML 設定語法 (YAML Syntax Validation)
         run: |
           pip install --break-system-packages pyyaml
           python3 -c "
@@ -36,7 +43,7 @@ jobs:
               sys.exit(1)
           "
 
-      - name: 檢查 JSON 語法 (JSON Syntax Validation via jq)
+      - name: 檢查 JSON 儀表板與組態 (JSON Syntax Validation via jq)
         run: |
           failed=0
           json_files=$(find . -type f -name "*.json" ! -path "*/bin/*" ! -path "*/obj/*" ! -path "*/.git/*" | sort)
@@ -52,18 +59,69 @@ jobs:
           done
           exit $failed
 
-      - name: 檢查 Docker Compose 配置結構 (Docker Compose Config Validation)
+      - name: 檢查 Docker Compose 規範結構 (Docker Compose Config)
         run: docker compose config --quiet
 
-      - name: 檢查 Dockerfile 語法規範 (Dockerfile Linting via Hadolint)
+      - name: 檢查 Dockerfile 語法與安全規範 (Dockerfile Lint via Hadolint)
         uses: hadolint/hadolint-action@v3.1.0
         with:
           dockerfile: src/OrderService/Dockerfile
           failure-threshold: error
 
-  # 2. .NET 程式碼品質與建構作業 (Code Quality & Build)
-  dotnet-build:
-    name: 編譯與程式碼規範 (.NET 10 Solution)
+  # =========================================================================
+  # 階段 2: 程式碼規範、編譯、單元測試與覆蓋率 (Build, Unit Tests & Coverage)
+  # =========================================================================
+  stage-2-test:
+    name: 2. 編譯、單元測試與覆蓋率 (Build, Unit Tests & Coverage)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core SDK 10.0
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 快取 NuGet 套件依賴 (Cache NuGet Packages)
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: 還原方案依賴 (Restore Dependencies)
+        run: dotnet restore OrderService.sln
+
+      - name: 檢查 C# 程式碼風格與格式 (Code Style Verification)
+        run: dotnet format OrderService.sln --verify-no-changes --verbosity normal
+
+      - name: 編譯方案並確保無警告 (Build Solution with Warnings as Errors)
+        run: dotnet build OrderService.sln --no-restore -c Release --warnaserror
+
+      - name: 執行單元測試與收集代碼覆蓋率 (Run Unit Tests with Code Coverage)
+        run: |
+          dotnet test OrderService.sln --no-build -c Release \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./TestResults \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: 封存測試報告與覆蓋率產物 (Upload Test & Coverage Artifacts)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-and-coverage
+          path: |
+            ./TestResults/*.trx
+            ./TestResults/**/coverage.cobertura.xml
+
+  # =========================================================================
+  # 階段 3: 軟體供應鏈安全與依賴弱點掃描 (Security & Vulnerability SCA)
+  # =========================================================================
+  stage-3-security:
+    name: 3. 安全弱點掃描 (Security & Vulnerability SCA)
     runs-on: ubuntu-latest
 
     steps:
@@ -75,19 +133,24 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Restore Dependencies
-        run: dotnet restore OrderService.sln
+      - name: 檢查 NuGet 相依套件已知弱點 (Audit Vulnerable Packages)
+        run: dotnet list OrderService.sln package --vulnerable --include-transitive
 
-      - name: 檢查 C# 程式碼格式與語法規範 (Code Format Verification)
-        run: dotnet format OrderService.sln --verify-no-changes --verbosity normal
+      - name: 執行 Trivy 依賴與檔案系統安全掃描 (Trivy SCA Scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
 
-      - name: 編譯方案並確保無警告與錯誤 (Build Solution with Warnings as Errors)
-        run: dotnet build OrderService.sln --no-restore -c Release --warnaserror
-
-  # 3. 容器映像檔建構驗證 (Docker Image Build)
-  docker-build:
-    name: 容器映像檔建構 (Docker Image Build)
-    needs: [syntax-validation, dotnet-build]
+  # =========================================================================
+  # 階段 4: 容器映像檔構建與映像弱點掃描 (Docker Build & Image Scan)
+  # =========================================================================
+  stage-4-container:
+    name: 4. 容器構建與映像檔安全 (Docker Build & Trivy Image Scan)
+    needs: [stage-1-lint, stage-2-test, stage-3-security]
     runs-on: ubuntu-latest
 
     steps:
@@ -97,5 +160,56 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 驗證多階段 Docker 映像檔建構 (Build Docker Image)
-        run: docker build -t orderservice:ci -f src/OrderService/Dockerfile .
+      - name: 多階段建構 Docker 容器映像檔 (Docker Build with Cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/OrderService/Dockerfile
+          tags: orderservice:ci-${{ github.sha }}
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 掃描 Docker 映像檔已知 CVE 弱點 (Trivy Container Scan)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: orderservice:ci-${{ github.sha }}
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '0'
+
+  # =========================================================================
+  # 階段 5: CI 品質門禁決策與執行摘要 (Quality Gate Summary)
+  # =========================================================================
+  stage-5-summary:
+    name: 5. CI 品質門禁總結 (Quality Gate Summary)
+    needs: [stage-1-lint, stage-2-test, stage-3-security, stage-4-container]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 產出 CI 執行總結報告 (Generate GitHub Step Summary)
+        run: |
+          cat << 'EOF' >> $GITHUB_STEP_SUMMARY
+          ## 🛡️ 企業級標準 CI 流水線執行報告
+
+          | 階段 (Stage) | 任務內容 | 狀態 (Status) |
+          | :--- | :--- | :--- |
+          | **1. 語法與靜態分析** | YAML, JSON, Docker Compose, Hadolint | ${{ needs.stage-1-lint.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **2. 編譯與測試** | C# 格式校驗、零警告編譯、單元測試、覆蓋率收集 | ${{ needs.stage-2-test.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **3. 軟體供應鏈安全** | NuGet Package Audit、Trivy SCA 弱點掃描 | ${{ needs.stage-3-security.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+          | **4. 容器鏡像構建** | Docker Multi-stage Build、Trivy 容器鏡像掃描 | ${{ needs.stage-4-container.result == 'success' && '✅ 通過 (PASS)' || '❌ 異常 (FAIL)' }} |
+
+          ---
+          > 💡 **品質門禁決策**：${{ (needs.stage-1-lint.result == 'success' && needs.stage-2-test.result == 'success' && needs.stage-3-security.result == 'success' && needs.stage-4-container.result == 'success') && '🎉 全部階段皆通過，符合生產合併標準！' || '⚠️ 存在失敗或被跳過的階段，請檢查上方詳細日誌。' }}
+          EOF
+
+          # 若有任一前置任務失敗，中斷本任務
+          if [ "${{ needs.stage-1-lint.result }}" != "success" ] || \
+             [ "${{ needs.stage-2-test.result }}" != "success" ] || \
+             [ "${{ needs.stage-3-security.result }}" != "success" ] || \
+             [ "${{ needs.stage-4-container.result }}" != "success" ]; then
+            echo "❌ CI 品質門禁未達標！" >&2
+            exit 1
+          fi
+          echo "✅ CI 品質門禁全部達標！"
