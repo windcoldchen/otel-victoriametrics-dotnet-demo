@@ -12,12 +12,18 @@ transforms:
     source: |
       .service_name = .container_name
       .timestamp = now()
+      matched, err = parse_regex(.message, r'TraceId:\s*(?P<trace_id>[a-fA-F0-9]{32})')
+      if err == null {
+        .trace_id = matched.trace_id
+      }
 
 sinks:
   victorialogs:
     type: http
     inputs: ["enrich_logs"]
     uri: "http://victoria-logs:9428/insert/jsonline?_stream_fields=container_name,service_name,stream&_msg_field=message&_time_field=timestamp"
+    framing:
+      method: newline_delimited
     encoding:
       codec: json
     compression: gzip

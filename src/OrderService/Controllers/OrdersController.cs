@@ -46,6 +46,8 @@ public class OrdersController : ControllerBase
     [HttpGet]
     public async Task<ActionResult<IEnumerable<Order>>> GetOrders()
     {
+        var traceId = Activity.Current?.TraceId.ToString() ?? "00000000000000000000000000000000";
+
         // 1. 嘗試從 Valkey 9 快取讀取
         try
         {
@@ -59,13 +61,13 @@ public class OrdersController : ControllerBase
                     .Where(o => o != null)
                     .ToList();
 
-                _logger.LogInformation("Retrieved {Count} orders from Valkey 9 cache.", list.Count);
+                _logger.LogInformation("Retrieved {Count} orders from Valkey 9 cache. TraceId: {TraceId}", list.Count, traceId);
                 return Ok(list);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to read orders from Valkey 9 cache, falling back to PostgreSQL.");
+            _logger.LogWarning(ex, "Failed to read orders from Valkey 9 cache, falling back to PostgreSQL. TraceId: {TraceId}", traceId);
         }
 
         AppMetrics.ValkeyCacheMissesCounter.Add(1);
@@ -90,7 +92,7 @@ public class OrdersController : ControllerBase
                 ));
             }
 
-            _logger.LogInformation("Retrieved {Count} orders directly from PostgreSQL database.", orders.Count);
+            _logger.LogInformation("Retrieved {Count} orders directly from PostgreSQL database. TraceId: {TraceId}", orders.Count, traceId);
 
             // 回填 Valkey 快取
             if (orders.Count > 0 && _valkey.IsConnected)
@@ -104,13 +106,13 @@ public class OrdersController : ControllerBase
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "Failed to backfill Valkey 9 cache.");
+                    _logger.LogWarning(ex, "Failed to backfill Valkey 9 cache. TraceId: {TraceId}", traceId);
                 }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to query orders from PostgreSQL.");
+            _logger.LogError(ex, "Failed to query orders from PostgreSQL. TraceId: {TraceId}", traceId);
             return StatusCode(500, new { error = "Database query failure", detail = ex.Message });
         }
 
@@ -123,6 +125,8 @@ public class OrdersController : ControllerBase
     [HttpGet("{id}")]
     public async Task<ActionResult<Order>> GetOrderById(string id)
     {
+        var traceId = Activity.Current?.TraceId.ToString() ?? "00000000000000000000000000000000";
+
         // 1. Valkey 9 快取
         try
         {
@@ -132,12 +136,16 @@ public class OrdersController : ControllerBase
             {
                 AppMetrics.ValkeyCacheHitsCounter.Add(1);
                 var cachedOrder = JsonSerializer.Deserialize<Order>(cachedJson.ToString()!);
-                if (cachedOrder != null) return Ok(cachedOrder);
+                if (cachedOrder != null)
+                {
+                    _logger.LogInformation("Retrieved order {OrderId} from Valkey 9 cache. TraceId: {TraceId}", id, traceId);
+                    return Ok(cachedOrder);
+                }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Valkey query failed for order {OrderId}", id);
+            _logger.LogWarning(ex, "Valkey query failed for order {OrderId}. TraceId: {TraceId}", id, traceId);
         }
 
         AppMetrics.ValkeyCacheMissesCounter.Add(1);
@@ -169,15 +177,17 @@ public class OrdersController : ControllerBase
                 }
                 catch { }
 
+                _logger.LogInformation("Retrieved order {OrderId} from PostgreSQL database. TraceId: {TraceId}", id, traceId);
                 return Ok(order);
             }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to fetch order {OrderId} from PostgreSQL", id);
+            _logger.LogError(ex, "Failed to fetch order {OrderId} from PostgreSQL. TraceId: {TraceId}", id, traceId);
             return StatusCode(500, new { error = "Database query error", detail = ex.Message });
         }
 
+        _logger.LogWarning("Order {OrderId} not found. TraceId: {TraceId}", id, traceId);
         return NotFound(new { message = $"Order {id} not found" });
     }
 
@@ -187,6 +197,8 @@ public class OrdersController : ControllerBase
     [HttpGet("search")]
     public async Task<ActionResult<IEnumerable<Order>>> SearchOrders([FromQuery] string q)
     {
+        var traceId = Activity.Current?.TraceId.ToString() ?? "00000000000000000000000000000000";
+
         if (string.IsNullOrWhiteSpace(q))
         {
             return BadRequest(new { error = "Query parameter 'q' is required" });
@@ -198,7 +210,7 @@ public class OrdersController : ControllerBase
 
         try
         {
-            _logger.LogInformation("Searching orders in OpenSearch 3 with keyword: {Query}", q);
+            _logger.LogInformation("Searching orders in OpenSearch 3 with keyword: {Query}. TraceId: {TraceId}", q, traceId);
             var searchResponse = await _openSearchClient.SearchAsync<Order>(s => s
                 .Index("orders")
                 .Query(query => query
@@ -211,14 +223,14 @@ public class OrdersController : ControllerBase
 
             if (!searchResponse.IsValid)
             {
-                _logger.LogWarning("OpenSearch query error: {Reason}", searchResponse.ServerError?.Error?.Reason ?? searchResponse.DebugInformation);
+                _logger.LogWarning("OpenSearch query error: {Reason}. TraceId: {TraceId}", searchResponse.ServerError?.Error?.Reason ?? searchResponse.DebugInformation, traceId);
             }
 
             return Ok(searchResponse.Documents);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to execute search against OpenSearch 3");
+            _logger.LogError(ex, "Failed to execute search against OpenSearch 3. TraceId: {TraceId}", traceId);
             return StatusCode(500, new { error = "Search engine error", detail = ex.Message });
         }
     }

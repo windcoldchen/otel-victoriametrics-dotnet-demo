@@ -444,7 +444,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "query": "_time:1h AND (service.name:OrderService OR container_name:order-service)",
+          "query": "_time:1h AND (service.name:OrderService OR container_name:order-service) AND NOT _msg:HttpMessageHandler",
           "refId": "A"
         }
       ]

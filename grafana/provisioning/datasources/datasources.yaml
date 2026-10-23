@@ -27,7 +27,7 @@ datasources:
       derivedFields:
         # A. 日誌 ➔ 鏈路：點擊 trace_id 直接跳轉展開 VictoriaTraces 瀑布圖
         - name: trace_id
-          matcherRegex: '(?:"trace_id"|"traceId"|TraceId)[:= ]"?([a-fA-F0-9]{32})"'
+          matcherRegex: "(?:trace_id|traceId|TraceId)[:= \"' ]+([a-fA-F0-9]{32})"
           url: '${__value.raw}'
           datasourceUid: victoriatraces
           urlDisplayLabel: 'View in VictoriaTraces'
