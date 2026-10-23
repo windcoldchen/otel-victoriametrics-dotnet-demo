@@ -178,7 +178,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: 多階段建構 Docker 容器映像檔 (Docker Build with Cache)
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: src/OrderService/Dockerfile
