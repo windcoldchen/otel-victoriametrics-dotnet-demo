@@ -249,6 +249,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND (container_name:opensearch OR service.name:opensearch)",
           "query": "_time:1h AND (container_name:opensearch OR service.name:opensearch)",
           "refId": "A"
         }

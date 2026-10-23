@@ -280,6 +280,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND (container_name:valkey OR service.name:valkey)",
           "query": "_time:1h AND (container_name:valkey OR service.name:valkey)",
           "refId": "A"
         }

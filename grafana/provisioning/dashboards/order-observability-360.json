@@ -444,6 +444,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND (service.name:OrderService OR container_name:order-service) AND NOT _msg:HttpMessageHandler",
           "query": "_time:1h AND (service.name:OrderService OR container_name:order-service) AND NOT _msg:HttpMessageHandler",
           "refId": "A"
         }
@@ -473,6 +474,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND container_name:~\"(postgres|valkey|kafka|opensearch)\"",
           "query": "_time:1h AND container_name:~\"(postgres|valkey|kafka|opensearch)\"",
           "refId": "A"
         }

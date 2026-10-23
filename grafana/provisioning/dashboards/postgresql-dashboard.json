@@ -257,6 +257,7 @@
       "targets": [
         {
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "expr": "_time:1h AND (container_name:postgres OR service.name:postgres)",
           "query": "_time:1h AND (container_name:postgres OR service.name:postgres)",
           "refId": "A"
         }
