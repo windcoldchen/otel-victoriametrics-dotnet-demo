@@ -9,6 +9,7 @@ using OrderService.Diagnostics;
 using OrderService.Models;
 using StackExchange.Redis;
 using Order = OrderService.Models.Order;
+using Headers = Confluent.Kafka.Headers;
 
 namespace OrderService.Controllers;
 
