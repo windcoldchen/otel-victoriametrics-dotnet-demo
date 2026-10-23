@@ -79,7 +79,12 @@ var resourceBuilder = ResourceBuilder.CreateDefault()
 
 // 4. 配置 OpenTelemetry Logging (整合 ILogger)
 builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
+builder.Logging.AddSimpleConsole(options =>
+{
+    options.IncludeScopes = true;
+    options.SingleLine = true;
+    options.TimestampFormat = "yyyy-MM-dd HH:mm:ss.fff ";
+});
 builder.Logging.AddOpenTelemetry(loggingOptions =>
 {
     loggingOptions.SetResourceBuilder(resourceBuilder);
@@ -154,6 +159,39 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseRouting();
+
+// 7. 全域 HTTP 請求鏈路追蹤與結構化日誌中介軟體 (確保所有 HTTP 請求均帶有 TraceId Scope 與完成日誌)
+app.Use(async (context, next) =>
+{
+    var traceId = Activity.Current?.TraceId.ToString() ?? context.TraceIdentifier;
+    var spanId = Activity.Current?.SpanId.ToString() ?? string.Empty;
+
+    using (app.Logger.BeginScope(new Dictionary<string, object>
+    {
+        ["TraceId"] = traceId,
+        ["trace_id"] = traceId,
+        ["SpanId"] = spanId,
+        ["span_id"] = spanId
+    }))
+    {
+        var sw = Stopwatch.StartNew();
+        await next();
+        sw.Stop();
+
+        if (!context.Request.Path.StartsWithSegments("/health") &&
+            !context.Request.Path.StartsWithSegments("/swagger"))
+        {
+            app.Logger.LogInformation(
+                "HTTP {Method} {Path} responded {StatusCode} in {ElapsedMs}ms. TraceId: {TraceId}",
+                context.Request.Method,
+                context.Request.Path,
+                context.Response.StatusCode,
+                sw.ElapsedMilliseconds,
+                traceId);
+        }
+    }
+});
+
 app.MapControllers();
 
 // 健康檢查端點
