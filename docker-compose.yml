@@ -1,5 +1,3 @@
-version: "3.8"
-
 networks:
   obs-demo-net:
     driver: bridge
@@ -9,9 +7,13 @@ volumes:
   vlogs_data:
   vtraces_data:
   grafana_data:
+  valkey_data:
+  kafka_data:
+  opensearch_data:
+  postgres_data:
 
 services:
-  # 1. .NET 8 Web API 業務微服務
+  # 1. .NET 10 Web API 業務微服務
   order-service:
     build:
       context: .
@@ -23,8 +25,16 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - OTEL_SERVICE_NAME=OrderService
+      - ConnectionStrings__PostgreSQL=Host=postgres;Port=5432;Database=orderdb;Username=postgres;Password=postgres;
+      - ConnectionStrings__Valkey=valkey:6379
+      - ConnectionStrings__Kafka=kafka:29092
+      - ConnectionStrings__OpenSearch=http://opensearch:9200
     depends_on:
       - otel-collector
+      - valkey
+      - kafka
+      - opensearch
+      - postgres
     networks:
       - obs-demo-net
 
@@ -43,6 +53,10 @@ services:
       - victoria-metrics
       - victoria-logs
       - victoria-traces
+      - valkey
+      - kafka
+      - opensearch
+      - postgres
     networks:
       - obs-demo-net
 
@@ -109,5 +123,100 @@ services:
       - victoria-metrics
       - victoria-logs
       - victoria-traces
+    networks:
+      - obs-demo-net
+
+  # 7. Valkey 9 (高速記憶體快取，相容 Redis 協定)
+  valkey:
+    image: valkey/valkey:9-alpine
+    container_name: valkey
+    ports:
+      - "6379:6379"
+    volumes:
+      - valkey_data:/data
+    command: ["valkey-server", "--appendonly", "yes"]
+    networks:
+      - obs-demo-net
+
+  # 8. Apache Kafka 3.9 (KRaft 模式事件串流)
+  kafka:
+    image: apache/kafka:3.9.0
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093,EXTERNAL://0.0.0.0:9092"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,EXTERNAL://localhost:9092"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - obs-demo-net
+
+  # 9. OpenSearch 3 (分散式搜尋與分析引擎)
+  opensearch:
+    image: opensearchproject/opensearch:3
+    container_name: opensearch
+    environment:
+      - discovery.type=single-node
+      - OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m
+      - DISABLE_SECURITY_PLUGIN=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+    volumes:
+      - opensearch_data:/usr/share/opensearch/data
+    networks:
+      - obs-demo-net
+
+  # 10. PostgreSQL (關聯式交易資料庫)
+  postgres:
+    image: postgres:17-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=orderdb
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    command:
+      - "postgres"
+      - "-c"
+      - "log_destination=stderr"
+      - "-c"
+      - "log_statement=all"
+      - "-c"
+      - "log_duration=on"
+      - "-c"
+      - "log_line_prefix=%m [%p] %q%u@%d "
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - obs-demo-net
+
+  # 11. Vector (容器日誌收集器：自動即時收集所有容器日誌並發送至 VictoriaLogs)
+  vector:
+    image: timberio/vector:0.43.0-alpine
+    container_name: vector
+    volumes:
+      - ./vector.yaml:/etc/vector/vector.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - victoria-logs
     networks:
       - obs-demo-net

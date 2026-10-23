@@ -1,0 +1,255 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "dashboard",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": false,
+      "title": "⬅ 返回 360° 全方位看板",
+      "type": "link",
+      "url": "/d/orders-360-observability"
+    },
+    {
+      "asDropdown": false,
+      "icon": "bolt",
+      "includeVars": true,
+      "keepTime": true,
+      "tags": [],
+      "targetBlank": true,
+      "title": "VictoriaTraces 檢索 Kafka 鏈路",
+      "type": "link",
+      "url": "http://localhost:10428/select/vmui"
+    }
+  ],
+  "liveNow": true,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "id": 100,
+      "title": "1. 叢集全景與核心 KPI (Kafka Cluster & Consumers)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "green", "value": null }]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 0, "y": 1 },
+      "id": 1,
+      "title": "活躍 Broker 數 (Active Brokers)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "count(kafka_brokers) or vector(1)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "blue", "value": null }]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 6, "y": 1 },
+      "id": 2,
+      "title": "主題與分區總數 (Topics & Partitions)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(kafka_topic_partitions) or vector(1)",
+          "legendFormat": "Partitions",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 50 },
+              { "color": "red", "value": 200 }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 12, "y": 1 },
+      "id": 3,
+      "title": "總消費者堆積延遲 (Total Consumer Lag)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(kafka_consumer_group_lag) or vector(0)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{ "color": "purple", "value": null }]
+          },
+          "unit": "msgs"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 6, "x": 18, "y": 1 },
+      "id": 4,
+      "title": "累計發布訂單事件數 (Published Events)",
+      "type": "stat",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(orders_kafka_messages_published_total) or vector(0)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 7 },
+      "id": 101,
+      "title": "2. 訊息吞吐量與消費者延遲趨勢 (Throughput & Lag Trends)",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "line", "lineInterpolation": "smooth", "fillOpacity": 20 },
+          "unit": "msgs"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 5,
+      "title": "訊息生產速率 (Messages Produced / sec)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(rate(orders_kafka_messages_published_total[1m])) or vector(0)",
+          "legendFormat": "orders.events 生產速率",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "fillOpacity": 40 },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 6,
+      "title": "消費者群組延遲 (Consumer Group Lag by Group)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "expr": "sum(kafka_consumer_group_lag) by (group) or vector(0)",
+          "legendFormat": "群組: {{group}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 16 },
+      "id": 102,
+      "title": "3. 串流鏈路追蹤與 Broker 日誌 (Traces & Realtime Logs)",
+      "type": "row"
+    },
+    {
+      "gridPos": { "h": 10, "w": 10, "x": 0, "y": 17 },
+      "id": 7,
+      "options": {
+        "content": "### 🔗 Kafka 端到端分散式鏈路追蹤 (W3C TraceContext)\n\n本專案示範了標準雲原生 Kafka 訊息鏈路傳播：\n\n1. **生產端 (Producer)**：API 建立訂單時注入 W3C `traceparent` Header 到 Kafka 訊息中，並產生 `KafkaProduce:orders.events` Span。\n2. **消費端 (Consumer)**：背景 `OrderProcessingConsumer` 提取 `traceparent`，建立子 Span `KafkaConsume:orders.events`。\n3. **跨行程關聯**：在 VictoriaTraces 中可直接檢視從 HTTP 請求 ➔ Kafka 發布 ➔ 非同步消費的完整樹狀圖！\n\n👉 **[前往 VictoriaTraces 檢索鏈路](http://localhost:10428/select/vmui)**",
+        "mode": "markdown"
+      },
+      "title": "Kafka 分散式鏈路追蹤架構",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "victorialogs-datasource", "uid": "victorialogs" },
+      "gridPos": { "h": 10, "w": 14, "x": 10, "y": 17 },
+      "id": 8,
+      "options": {
+        "showLabels": false,
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending"
+      },
+      "title": "Apache Kafka 3.9 Broker 容器原生日誌",
+      "type": "logs",
+      "targets": [
+        {
+          "datasource": { "type": "victorialogs-datasource", "uid": "victorialogs" },
+          "query": "_time:1h AND (container_name:kafka OR service.name:kafka)",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["kafka", "messaging", "kraft", "victoriametrics", "victorialogs"],
+  "time": { "from": "now-15m", "to": "now" },
+  "timepicker": { "refresh_intervals": ["5s", "10s", "30s", "1m"] },
+  "timezone": "browser",
+  "title": "Apache Kafka 3.9 - 串流中樞與消費者延遲監控",
+  "uid": "kafka-39-dashboard",
+  "version": 1
+}

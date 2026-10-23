@@ -1,0 +1,25 @@
+# Vector 容器日誌採集配置：自動自 Docker Socket 讀取所有容器的 stdout/stderr，
+# 標記 container_name 與 stream 後即時推播至 VictoriaLogs 結構化日誌儲存
+sources:
+  docker_logs:
+    type: docker_logs
+    exclude_containers: ["vector"]
+
+transforms:
+  enrich_logs:
+    type: remap
+    inputs: ["docker_logs"]
+    source: |
+      .service_name = .container_name
+      .timestamp = now()
+
+sinks:
+  victorialogs:
+    type: http
+    inputs: ["enrich_logs"]
+    uri: "http://victoria-logs:9428/insert/jsonline?_stream_fields=container_name,service_name,stream&_msg_field=message&_time_field=timestamp"
+    encoding:
+      codec: json
+    compression: gzip
+    healthcheck:
+      enabled: false

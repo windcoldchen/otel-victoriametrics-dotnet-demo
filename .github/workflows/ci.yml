@@ -1,4 +1,4 @@
-name: CI - Build & Test
+name: CI - Build, Test & Lint
 
 on:
   push:
@@ -7,24 +7,95 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
-    name: Build .NET Core 8 Solution
+  # 1. 靜態語法檢查作業 (Syntax & Schema Validation)
+  syntax-validation:
+    name: 語法檢查 (YAML, JSON, Docker, Compose)
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Setup .NET Core SDK
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: '8.0.x'
+      - name: 檢查 YAML 語法 (YAML Syntax Validation)
+        run: |
+          pip install --break-system-packages pyyaml
+          python3 -c "
+          import glob, sys, yaml
+          failed = False
+          files = sorted(glob.glob('**/*.yaml', recursive=True) + glob.glob('**/*.yml', recursive=True))
+          print(f'==> 正在掃描 {len(files)} 個 YAML 檔案...')
+          for f in files:
+              try:
+                  with open(f, 'r', encoding='utf-8') as fp:
+                      yaml.safe_load(fp)
+                  print(f'  ✅ [PASS] {f}')
+              except Exception as e:
+                  print(f'  ❌ [FAIL] {f}: {e}', file=sys.stderr)
+                  failed = True
+          if failed:
+              sys.exit(1)
+          "
 
-    - name: Restore Dependencies
-      run: dotnet restore OrderService.sln
+      - name: 檢查 JSON 語法 (JSON Syntax Validation via jq)
+        run: |
+          failed=0
+          json_files=$(find . -type f -name "*.json" ! -path "*/bin/*" ! -path "*/obj/*" ! -path "*/.git/*" | sort)
+          echo "==> 正在掃描 JSON 檔案..."
+          for file in $json_files; do
+            if jq empty "$file" > /dev/null 2>&1; then
+              echo "  ✅ [PASS] $file"
+            else
+              echo "  ❌ [FAIL] $file" >&2
+              jq empty "$file" >&2
+              failed=1
+            fi
+          done
+          exit $failed
 
-    - name: Build Solution
-      run: dotnet build OrderService.sln --no-restore -c Release
+      - name: 檢查 Docker Compose 配置結構 (Docker Compose Config Validation)
+        run: docker compose config --quiet
 
-    - name: Validate Docker Compose Config
-      run: docker compose config
+      - name: 檢查 Dockerfile 語法規範 (Dockerfile Linting via Hadolint)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: src/OrderService/Dockerfile
+          failure-threshold: error
+
+  # 2. .NET 程式碼品質與建構作業 (Code Quality & Build)
+  dotnet-build:
+    name: 編譯與程式碼規範 (.NET 10 Solution)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore Dependencies
+        run: dotnet restore OrderService.sln
+
+      - name: 檢查 C# 程式碼格式與語法規範 (Code Format Verification)
+        run: dotnet format OrderService.sln --verify-no-changes --verbosity normal
+
+      - name: 編譯方案並確保無警告與錯誤 (Build Solution with Warnings as Errors)
+        run: dotnet build OrderService.sln --no-restore -c Release --warnaserror
+
+  # 3. 容器映像檔建構驗證 (Docker Image Build)
+  docker-build:
+    name: 容器映像檔建構 (Docker Image Build)
+    needs: [syntax-validation, dotnet-build]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 驗證多階段 Docker 映像檔建構 (Build Docker Image)
+        run: docker build -t orderservice:ci -f src/OrderService/Dockerfile .

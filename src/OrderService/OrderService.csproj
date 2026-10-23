@@ -1,21 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <NoWarn>$(NoWarn);NU1902</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
     <!-- OpenTelemetry Core & Hosting -->
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.10.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.11.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.11.1" />
 
     <!-- OpenTelemetry Instrumentations -->
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.10.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.10.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.10.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.11.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.StackExchangeRedis" Version="1.11.0-beta.1" />
+
+    <!-- Database: PostgreSQL -->
+    <PackageReference Include="Npgsql" Version="9.0.2" />
+    <PackageReference Include="Npgsql.OpenTelemetry" Version="9.0.2" />
+
+    <!-- Cache: Valkey 9 (Redis-compatible) -->
+    <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
+
+    <!-- Messaging: Apache Kafka 3.9 -->
+    <PackageReference Include="Confluent.Kafka" Version="2.8.0" />
+
+    <!-- Search Engine: OpenSearch 3 -->
+    <PackageReference Include="OpenSearch.Client" Version="1.8.0" />
 
     <!-- Swagger UI for easy interactive testing -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
