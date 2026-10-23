@@ -77,7 +77,7 @@ services:
 
   # 4. VictoriaLogs (結構化日誌 TSDB)
   victoria-logs:
-    image: victoriametrics/victoria-logs:v1.8.0
+    image: victoriametrics/victoria-logs:v1.53.0
     container_name: victoria-logs
     ports:
       - "9428:9428"
