@@ -1,0 +1,54 @@
+name: 🐛 問題回報 (Bug Report)
+description: 回報系統異常、編譯錯誤或中介軟體通訊問題
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝您協助改善本專案！請盡可能提供重現問題所需的詳細環境與資訊。
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述 (Problem Description)
+      description: 請清楚描述遇到的異常現象或錯誤行為。
+      placeholder: 例如：呼叫 /api/orders 時無法寫入 Valkey 快取...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重現步驟 (Steps to Reproduce)
+      description: 請條列觸發該問題的操作步驟。
+      placeholder: |
+        1. 執行 `docker compose up -d`
+        2. 發送 POST 請求至 `/api/orders`
+        3. 觀察 Grafana 或控制台日誌...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期行為 (Expected Behavior)
+      description: 正常的預期運作方式為何？
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相關日誌與鏈路追蹤 (Logs & Traces)
+      description: 請貼上 VictoriaLogs、VictoriaTraces 或容器標準輸出相關日誌片段。
+      render: shell
+
+  - type: input
+    id: environment
+    attributes:
+      label: 執行環境 (Environment)
+      description: 請提供作業系統、Docker 版本、.NET SDK 版本等資訊。
+      placeholder: macOS 15.0 / Docker 27.x / .NET 10.0
+    validations:
+      required: true

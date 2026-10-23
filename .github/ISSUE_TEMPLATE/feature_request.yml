@@ -1,0 +1,31 @@
+name: 💡 功能建議 (Feature Request)
+description: 為專案提議新功能、架構改進或新儀表板需求
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝您提供寶貴建議！請說明這項功能能帶來什麼效益與情境。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 相關問題或痛點 (Problem or Pain Point)
+      description: 本項需求是為了解決什麼現有問題或業務限制？
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 建議解決方案 (Proposed Solution)
+      description: 請詳述您希望如何實作或設計此功能。
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考慮過的替代方案 (Alternatives Considered)
+      description: 是否有考慮過其他技術方案或第三方工具？
