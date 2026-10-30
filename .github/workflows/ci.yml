@@ -185,7 +185,7 @@ jobs:
           fetch-depth: 0
 
       - name: 檢測 .NET Core 服務程式碼變更 (Detect .NET Code Changes)
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: changes
         with:
           filters: |
