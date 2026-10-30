@@ -33,7 +33,7 @@
     <PackageReference Include="OpenSearch.Client" Version="2.2.0" />
 
     <!-- Swagger UI for easy interactive testing -->
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.1" />
   </ItemGroup>
 
 </Project>
