@@ -30,7 +30,7 @@
     <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
 
     <!-- Search Engine: OpenSearch 3 -->
-    <PackageReference Include="OpenSearch.Client" Version="2.2.0" />
+    <PackageReference Include="OpenSearch.Client" Version="2.3.0" />
 
     <!-- Swagger UI for easy interactive testing -->
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
