@@ -198,7 +198,7 @@ jobs:
 
       - name: 提取 Docker 標籤與中繼資料 (Docker Metadata for GHCR)
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/${{ github.repository }}
