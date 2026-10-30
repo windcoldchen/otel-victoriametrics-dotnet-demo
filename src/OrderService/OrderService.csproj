@@ -24,7 +24,7 @@
     <PackageReference Include="Npgsql.OpenTelemetry" Version="10.0.3" />
 
     <!-- Cache: Valkey 9 (Redis-compatible) -->
-    <PackageReference Include="StackExchange.Redis" Version="2.8.24" />
+    <PackageReference Include="StackExchange.Redis" Version="3.4.20" />
 
     <!-- Messaging: Apache Kafka 3.9 -->
     <PackageReference Include="Confluent.Kafka" Version="2.16.0" />
